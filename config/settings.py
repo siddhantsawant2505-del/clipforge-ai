@@ -4,9 +4,28 @@ All environment variables are loaded here. Import this module across the project
 """
 
 import os
+import shutil
+import glob
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# ─── Ensure FFmpeg in PATH (Auto-detect Winget / Local installs) ─────────────
+if not shutil.which("ffmpeg"):
+    candidate_patterns = [
+        os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\WinGet\Packages\Gyan.FFmpeg*\*\bin"),
+        os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\WinGet\Links"),
+        r"C:\ProgramData\chocolatey\bin",
+        r"C:\ffmpeg\bin",
+    ]
+    for pattern in candidate_patterns:
+        matches = glob.glob(pattern)
+        for match in matches:
+            if os.path.exists(os.path.join(match, "ffmpeg.exe")):
+                os.environ["PATH"] = match + os.pathsep + os.environ["PATH"]
+                break
+        if shutil.which("ffmpeg"):
+            break
 
 # ─── Twitch ─────────────────────────────────────────────────────────────────
 TWITCH_CLIENT_ID     = os.getenv("TWITCH_CLIENT_ID", "")

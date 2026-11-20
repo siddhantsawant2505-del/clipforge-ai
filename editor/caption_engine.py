@@ -142,7 +142,7 @@ class CaptionEngine:
         cmd = [
             "ffmpeg", "-y",
             "-i", input_video,
-            "-vf", f"ass={ass_escaped}",
+            "-vf", f"ass=filename='{ass_escaped}'",
             "-c:a", "copy",
             output_video,
         ]
