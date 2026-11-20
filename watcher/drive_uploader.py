@@ -18,16 +18,35 @@ class DriveUploader:
     SCOPES = ["https://www.googleapis.com/auth/drive.file"]
 
     def __init__(self):
-        creds = service_account.Credentials.from_service_account_file(
-            GOOGLE_CREDENTIALS_JSON, scopes=self.SCOPES
-        )
-        self._service = build("drive", "v3", credentials=creds)
+        self._service = None
+
+    def get_service(self):
+        if self._service is None:
+            if not os.path.exists(GOOGLE_CREDENTIALS_JSON):
+                logger.warning(
+                    f"[DriveUploader] Credentials file '{GOOGLE_CREDENTIALS_JSON}' not found. "
+                    f"Google Drive upload disabled; files will remain stored locally."
+                )
+                return None
+            try:
+                creds = service_account.Credentials.from_service_account_file(
+                    GOOGLE_CREDENTIALS_JSON, scopes=self.SCOPES
+                )
+                self._service = build("drive", "v3", credentials=creds)
+            except Exception as e:
+                logger.error(f"[DriveUploader] Failed to initialize Drive service: {e}")
+                return None
+        return self._service
 
     def upload(self, file_path: str, metadata: dict) -> str:
         """
         Upload a file to Google Drive.
-        Returns the shareable Drive file URL.
+        Returns the shareable Drive file URL or local path fallback.
         """
+        service = self.get_service()
+        if not service:
+            logger.info(f"[DriveUploader] Drive not configured — clip saved locally at: {file_path}")
+            return f"file:///{file_path}"
         filename = os.path.basename(file_path)
         channel  = metadata.get("channel", "unknown")
         game     = metadata.get("game", "unknown")

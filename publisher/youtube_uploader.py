@@ -23,7 +23,24 @@ class YouTubeUploader:
     """Handles OAuth and uploads to YouTube as Shorts."""
 
     def __init__(self):
-        self._service = self._authenticate()
+        self._service = None
+
+    def is_configured(self) -> bool:
+        """Check if token or client secret exists."""
+        return os.path.exists(TOKEN_PICKLE) or os.path.exists(YOUTUBE_CLIENT_SECRET_JSON)
+
+    def get_service(self):
+        """Lazy authentication so importing or starting the app doesn't block."""
+        if self._service is None:
+            if not self.is_configured():
+                logger.warning(f"[YouTubeUploader] Secret file '{YOUTUBE_CLIENT_SECRET_JSON}' not found. Uploads disabled until configured.")
+                return None
+            try:
+                self._service = self._authenticate()
+            except Exception as e:
+                logger.error(f"[YouTubeUploader] Auth failed: {e}")
+                return None
+        return self._service
 
     def _authenticate(self):
         creds = None
@@ -53,6 +70,10 @@ class YouTubeUploader:
         privacy: str = "public",   # "public" | "unlisted" | "private"
     ) -> str:
         """Upload an MP4 to YouTube. Returns the video URL."""
+        service = self.get_service()
+        if not service:
+            logger.warning("[YouTubeUploader] YouTube is not authenticated. Please check your credentials.")
+            return ""
 
         # Ensure #Shorts is in the description for Shorts detection
         if "#Shorts" not in description:

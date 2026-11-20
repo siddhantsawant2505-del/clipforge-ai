@@ -23,13 +23,23 @@ class TelegramNotifier:
     """Sends messages and inline buttons to your Telegram chat."""
 
     def __init__(self):
-        self._app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+        self._app = None
+        if TELEGRAM_BOT_TOKEN and TELEGRAM_BOT_TOKEN.strip():
+            try:
+                self._app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+            except Exception as e:
+                logger.warning(f"[Telegram] Failed to initialize bot application: {e}")
+        else:
+            logger.warning("[Telegram] TELEGRAM_BOT_TOKEN not configured in .env. Bot notifications disabled.")
         self._monitor_callbacks: dict[str, callable] = {}
 
     # ─── Sending Notifications ────────────────────────────────────────────────
 
     async def send_live_alert(self, channel: str, game: str, viewers: int):
         """Alert: streamer just went live. Ask if we should monitor."""
+        if not self._app or not TELEGRAM_CHAT_ID:
+            logger.info(f"[Telegram (Simulated Alert)] {channel} is LIVE playing {game} ({viewers} viewers)")
+            return
         keyboard = InlineKeyboardMarkup([
             [
                 InlineKeyboardButton(
@@ -65,6 +75,9 @@ class TelegramNotifier:
         clip_id: str,
     ):
         """Notify that a clip was captured and uploaded to Drive."""
+        if not self._app or not TELEGRAM_CHAT_ID:
+            logger.info(f"[Telegram (Simulated Alert)] Clip ready for {channel} ({clip_id}) → {drive_url}")
+            return
         text = (
             f"✂️ *Clip captured!*\n\n"
             f"📺 Streamer: *{channel}*\n"
@@ -83,6 +96,9 @@ class TelegramNotifier:
 
     async def send_message(self, text: str):
         """Send a plain text message."""
+        if not self._app or not TELEGRAM_CHAT_ID:
+            logger.info(f"[Telegram (Simulated)] {text}")
+            return
         await self._app.bot.send_message(
             chat_id=TELEGRAM_CHAT_ID, text=text, parse_mode="Markdown"
         )
@@ -115,6 +131,9 @@ class TelegramNotifier:
 
     def run(self):
         """Start the bot's polling loop (blocking)."""
+        if not self._app:
+            logger.info("[Telegram] Bot polling inactive (TELEGRAM_BOT_TOKEN not configured).")
+            return
         self._app.add_handler(CallbackQueryHandler(self._handle_callback))
         logger.info("[Telegram] Bot polling started...")
         self._app.run_polling()
